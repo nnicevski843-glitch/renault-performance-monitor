@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="mk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Renault Performance Monitor – Prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#090d12;--panel:#111923;--muted:#91a0af;--green:#37d67a;--blue:#4aa3ff;--amber:#ffbd4a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#172432,#090d12 55%);color:#f4f7fa;font-family:system-ui,Arial,sans-serif}
+main{max-width:760px;margin:auto;padding:18px}.top{text-align:center;margin:8px 0 18px}.eyebrow{color:#a8b6c5;letter-spacing:.18em;font-size:11px}.top h1{font-size:23px;letter-spacing:.08em;margin:6px 0}.sub{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{background:linear-gradient(160deg,#18232f,#0e151d);border:1px solid #293746;border-radius:18px;padding:16px;text-align:center;min-width:0}
+.gauge{height:230px;display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:12px 0}.track{height:190px;width:42px;border-radius:12px;background:#263341;overflow:hidden;display:flex;align-items:flex-end;box-shadow:inset 0 0 10px #000}.fill{width:100%;height:0;border-radius:10px;transition:height .25s}.hp{background:linear-gradient(0deg,#168a4b,#50f394)}.nm{background:linear-gradient(0deg,#1768bd,#65b8ff)}
+.scale{display:flex;flex-direction:column;justify-content:space-between;height:190px;color:#8796a5;font-size:10px;text-align:right}
+.value{font-size:32px;font-weight:750;font-variant-numeric:tabular-nums}.unit{color:var(--muted);font-size:12px}.label{font-weight:700;letter-spacing:.15em;margin-top:8px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}.metric{background:#101923;border:1px solid #253443;border-radius:13px;padding:12px 7px;text-align:center}.metric strong{display:block;font-size:19px;font-variant-numeric:tabular-nums}.metric span{font-size:10px;color:var(--muted)}
+.controls{display:flex;gap:9px;margin-top:14px}.btn{flex:1;border:0;border-radius:12px;padding:14px;font-weight:700;background:#2a8b5a;color:white;font-size:14px}.btn.secondary{background:#263544;color:#e7edf3}
+.note{margin-top:14px;padding:13px;border-radius:12px;background:#161d25;border:1px solid #34404b;color:#b9c5d0;font-size:12px;line-height:1.5}.status{margin-top:10px;text-align:center;color:var(--amber);font-size:12px}
+.chartWrap{margin-top:12px}.chartHead{display:flex;justify-content:space-between;align-items:center;gap:8px}.chartHead .sub{font-size:11px}.chart{display:block;width:100%;height:170px;margin-top:10px;border-radius:10px;background:#0b121a;border:1px solid #263544}
+@media(max-width:390px){main{padding:10px}.card{padding:10px}.gauge{height:205px}.track{height:170px;width:36px}.scale{height:170px}.value{font-size:26px}}
+.gear{border:1px solid #405064;background:#202d3a;color:#eaf0f6;border-radius:10px;padding:12px 4px;font-size:16px;font-weight:750}
+.gear.active{background:#258653;border-color:#42d889;color:#fff}
+</style>
+</head>
+<body>
+<main>
+ <header class="top"><div class="eyebrow">RENAULT • MEGANE IV</div><h1>PERFORMANCE MONITOR · v0.8</h1><div class="sub">1.5 Blue dCi 115 HP · 6MT · 205/55 R16</div></header>
+ <section class="grid">
+  <article class="card">
+   <div class="value" id="hpVal">—</div><div class="unit">проценета моќност на тркала · HP</div>
+   <div class="gauge"><div class="scale" id="hpScale"><span>115</span><span>86</span><span>58</span><span>29</span><span>0</span></div><div class="track"><div class="fill hp" id="hpBar"></div></div></div>
+   <div class="label">HP</div>
+  </article>
+  <article class="card">
+   <div class="value" id="nmVal">—</div><div class="unit">не може веродостојно да се пресмета без RPM</div>
+   <div class="gauge" style="align-items:center;color:#91a0af;font-size:13px;line-height:1.5;padding:18px">Nm не е достапен<br>само преку GPS</div>
+   <div class="label">N·m</div>
+  </article>
+ </section>
+ <section class="metrics">
+  <div class="metric"><strong id="speed">—</strong><span>GPS km/h</span></div>
+  <div class="metric"><strong id="accel">—</strong><span>Забрзување m/s²</span></div>
+  <div class="metric"><strong id="power">—</strong><span>Моќност kW</span></div>
+  <div class="metric"><strong id="peakHp">—</strong><span>Максимум HP · ова возење</span></div>
+ </section>
+ <section class="metrics" style="margin-top:9px">
+  <div class="metric"><strong id="maxSpeed">—</strong><span>Максимална брзина · km/h</span></div>
+  <div class="metric"><strong id="zero100">—</strong><span>0–100 km/h · секунди</span></div>
+ </section>
+ <section class="metrics" style="margin-top:9px">
+  <div class="metric"><strong id="tripDistance">0.00</strong><span>Растојание · km</span></div>
+  <div class="metric"><strong id="tripTime">00:00</strong><span>Времетраење</span></div>
+  <div class="metric"><strong id="avgSpeed">0.0</strong><span>Просечна брзина · km/h</span></div>
+  <div class="metric"><strong id="gpsAccuracy">—</strong><span>GPS точност · m</span></div>
+ </section>
+ <section class="card" style="margin-top:12px;text-align:left">
+  <div class="chartHead"><div class="label" style="margin:0">ИСТОРИЈА НА 0–100</div><button class="gear" id="clearRuns" style="font-size:11px;padding:7px 9px">ИЗБРИШИ</button></div>
+  <div id="runHistory" class="sub" style="margin-top:10px;line-height:1.8">Сè уште нема завршени тестови.</div>
+ </section>
+ <section class="card chartWrap">
+  <div class="chartHead"><div class="label" style="margin:0">ГРАФИКОН НА МОЌНОСТ</div><div class="sub">последни 60 секунди</div></div>
+  <canvas id="hpChart" class="chart" aria-label="Графикон на проценета моќност во коњски сили"></canvas>
+  <div class="sub" style="margin-top:7px">HP · графиконот се пополнува кога GPS пресметката има валидни податоци</div>
+ </section>
+ <section class="card" style="margin-top:12px;padding:14px">
+  <div class="label" style="margin:0 0 10px">ИЗБЕРИ БРЗИНА</div>
+  <div class="gears" id="gears" style="display:grid;grid-template-columns:repeat(7,1fr);gap:7px">
+   <button class="gear active" data-gear="1">1</button>
+   <button class="gear" data-gear="2">2</button>
+   <button class="gear" data-gear="3">3</button>
+   <button class="gear" data-gear="4">4</button>
+   <button class="gear" data-gear="5">5</button>
+   <button class="gear" data-gear="6">6</button>
+   <button class="gear" data-gear="0">N</button>
+  </div>
+  <div class="sub" style="margin-top:10px">Рачен избор · брзина <b id="gearReadout">1</b></div>
+ </section>
+ <div class="controls"><button class="btn" id="start">СТАРТ GPS</button><button class="btn secondary" id="reset">РЕСЕТ</button></div>
+ <div class="status" id="status">GPS не е активиран. Отвори преку HTTPS и дозволи локација.</div>
+ <div class="note"><b>v0.8 – патни податоци:</b> GPS читањата со точност полоша од 25 m се отфрлаат; додадени се растојание, времетраење, просечна брзина и GPS точност; нереални скокови на брзина и нагли промени на забрзување се филтрираат. HP се прикажува во бројки од 0 нагоре; скалата почнува од 115 HP и автоматски се проширува ако проценката ја надмине таа вредност. Тоа е груба проценка на моќноста на тркалата при забрзување на рамен пат. Максимум HP го памети највисокиот пресметан резултат сè до ресетирање. Додадени се максимална GPS-брзина и мерење 0–100 km/h со локална историја на завршени тестови. Мерењето 0–100 автоматски почнува при премин над 5 km/h и завршува на 100 km/h; GPS-мерењето може да има отстапување и не треба да се изведува на јавен пат или во сообраќај. Изборот на брзина е рачен и сам по себе не ги дава моторните RPM: за тоа се потребни точните преносни односи и реалната брзина на возилото. Nm намерно не се прикажува како измерена вредност додека RPM не може веродостојно да се утврди. Не е фабрички Renault податок и не е наменет за користење од возачот во движење.</div>
+</main>
+<script>
+const MASS=1450, Crr=.012, CdA=.68, RHO=1.225, G=9.80665;
+let watch=null,last=null,filteredA=0, displayHp=0, selectedGear=1, hpScaleMax=115, peakHp=0, maxSpeed=0, accelStart=null;
+let tripStart=null, tripDistance=0;
+const hpHistory=[];
+const RUN_KEY='renault-performance-monitor-0.7-runs';
+let runs=[];
+const el=id=>document.getElementById(id);
+function show(id,v){el(id).textContent=v}
+try{runs=JSON.parse(localStorage.getItem(RUN_KEY)||'[]');if(!Array.isArray(runs))runs=[];}catch(e){runs=[];}
+function renderRuns(){const box=el('runHistory');if(!runs.length){box.textContent='Сè уште нема завршени тестови.';return;}box.innerHTML=runs.slice(0,8).map((r,i)=>'<div style="display:flex;justify-content:space-between;border-bottom:1px solid #293746;padding:5px 0"><span>#'+(i+1)+' · '+new Date(r.date).toLocaleString('mk-MK')+'</span><b>'+r.seconds.toFixed(2)+' s</b></div>').join('');}
+function saveRun(seconds,t){runs.unshift({seconds,date:t});runs=runs.slice(0,8);try{localStorage.setItem(RUN_KEY,JSON.stringify(runs));}catch(e){}renderRuns();}
+renderRuns();
+const chart=el=>document.getElementById(el);
+document.querySelectorAll('.gear').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+  selectedGear=Number(btn.dataset.gear);
+  document.querySelectorAll('.gear').forEach(b=>b.classList.toggle('active',b===btn));
+  show('gearReadout',selectedGear===0?'N':String(selectedGear));
+ });
+});
+function fmtDuration(ms){const sec=Math.max(0,Math.floor(ms/1000));return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0')}
+function updateTrip(t){
+ if(tripStart===null)return;
+ const elapsed=Math.max(0,t-tripStart);
+ show('tripTime',fmtDuration(elapsed));
+ show('tripDistance',tripDistance.toFixed(2));
+ show('avgSpeed',elapsed>0?(tripDistance/(elapsed/3600000)).toFixed(1):'0.0');
+}
+function haversine(lat1,lon1,lat2,lon2){
+ const rad=x=>x*Math.PI/180, dLat=rad(lat2-lat1),dLon=rad(lon2-lon1);
+ const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
+ return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function updateHpScale(){const vals=[hpScaleMax,Math.round(hpScaleMax*.75),Math.round(hpScaleMax*.5),Math.round(hpScaleMax*.25),0];el('hpScale').innerHTML=vals.map(v=>'<span>'+v+'</span>').join('')}
+function drawChart(){
+ const canvas=chart('hpChart'); if(!canvas) return;
+ const w=canvas.clientWidth, h=canvas.clientHeight, dpr=window.devicePixelRatio||1;
+ if(!w||!h) return;
+ canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+ const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+ ctx.clearRect(0,0,w,h);
+ const pad={l:34,r:10,t:12,b:22}, cw=w-pad.l-pad.r, ch=h-pad.t-pad.b;
+ const now=Date.now(), points=hpHistory.filter(p=>now-p.t<=60000);
+ const maxY=Math.max(25,Math.ceil(Math.max(hpScaleMax,...points.map(p=>p.hp))/25)*25);
+ ctx.font='10px system-ui'; ctx.fillStyle='#8796a5'; ctx.strokeStyle='#263544'; ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){const y=pad.t+ch*i/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText(String(Math.round(maxY*(1-i/4))),4,y+3)}
+ ctx.fillText('60s',pad.l,h-6);ctx.fillText('0s',w-pad.r-12,h-6);
+ if(points.length<2){ctx.fillStyle='#91a0af';ctx.textAlign='center';ctx.fillText('Чекам податоци од GPS…',w/2,h/2);ctx.textAlign='left';return}
+ ctx.beginPath();points.forEach((p,i)=>{const x=pad.l+cw*(1-(now-p.t)/60000),y=pad.t+ch*(1-Math.max(0,p.hp)/maxY);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
+ ctx.strokeStyle='#50f394';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+}
+function reset(){last=null;filteredA=0;displayHp=0;tripStart=null;tripDistance=0;show('tripDistance','0.00');show('tripTime','00:00');show('avgSpeed','0.0');show('gpsAccuracy','—');hpScaleMax=115;peakHp=0;maxSpeed=0;accelStart=null;hpHistory.length=0;updateHpScale();drawChart();show('speed','—');show('accel','—');show('power','—');show('hpVal','—');show('nmVal','—');show('peakHp','—');show('maxSpeed','—');show('zero100','—');el('hpBar').style.height='0%'}
+el('reset').onclick=reset;
+el('clearRuns').onclick=()=>{if(confirm('Да ја избришам историјата на 0–100?')){runs=[];try{localStorage.removeItem(RUN_KEY);}catch(e){}renderRuns();}};
+el('start').onclick=()=>{
+ if(!('geolocation' in navigator)){el('status').textContent='Овој прелистувач нема GPS пристап.';return}
+ if(watch!==null){navigator.geolocation.clearWatch(watch);watch=null;el('status').textContent='GPS паузиран.';el('start').textContent='СТАРТ GPS';return}
+ // Нова сесија: peak и максималната брзина почнуваат одново.
+ last=null;filteredA=0;displayHp=0;peakHp=0;maxSpeed=0;accelStart=null;hpHistory.length=0;
+ tripStart=null;tripDistance=0;show('tripDistance','0.00');show('tripTime','00:00');show('avgSpeed','0.0');show('gpsAccuracy','—');
+ show('peakHp','0.0 HP');show('maxSpeed','0.0');show('zero100','—');show('hpVal','0.0 HP');show('accel','0.00');show('power','0.0');el('hpBar').style.height='0%';drawChart();
+ el('start').textContent='ЧЕКАМ GPS…';el('status').textContent='Барам GPS сигнал и точност…';
+ try {
+  watch=navigator.geolocation.watchPosition(pos=>{
+   const c=pos.coords, t=pos.timestamp;
+   if(c.accuracy && c.accuracy>25){el('status').textContent='GPS сигналот е слаб · точност ±'+Math.round(c.accuracy)+' m · чекам подобар сигнал';return;}
+   const v=(c.speed!=null && Number.isFinite(c.speed) && c.speed>=0)?c.speed:0, kmh=v*3.6;
+   if(tripStart===null)tripStart=t;
+   show('gpsAccuracy',String(Math.round(c.accuracy||0)));
+   if(last){
+    const dt=(t-last.t)/1000;
+    if(dt<=0 || dt>3){last={v,t};return;}
+    const raw=(v-last.v)/dt;
+    // Отфрли скокови што не се физички веродостојни за ова возило/GPS.
+    if(Math.abs(raw)>4.0 || Math.abs(kmh-last.kmh)>Math.max(18,dt*45)){el('status').textContent='Отфрлено GPS отстапување · чекам следно мерење';return;}
+    if(dt<=5 && c.latitude!=null && c.longitude!=null && last.lat!=null && last.lon!=null){
+     const segment=haversine(last.lat,last.lon,c.latitude,c.longitude);
+     if(segment/dt<=55)tripDistance+=segment/1000;
+    }
+    filteredA=.22*raw+.78*filteredA;
+    filteredA=Math.max(-3.5,Math.min(3.5,filteredA));
+    const force=MASS*filteredA + MASS*G*Crr + .5*RHO*CdA*v*v;
+    const watts=Math.max(0,force*v);
+    const kw=watts/1000, hp=watts/745.7;
+    displayHp=.25*hp+.75*displayHp;
+    if(displayHp>hpScaleMax){hpScaleMax=Math.ceil(displayHp/25)*25;updateHpScale()}
+    const pct=Math.min(100,Math.max(0,displayHp/hpScaleMax*100));
+    peakHp=Math.max(peakHp,displayHp);
+    hpHistory.push({t:Date.now(),hp:displayHp});while(hpHistory.length && Date.now()-hpHistory[0].t>60000)hpHistory.shift();drawChart();
+    show('accel',filteredA.toFixed(2));show('power',(displayHp*.7457).toFixed(1));
+    show('hpVal',displayHp.toFixed(1)+' HP');show('peakHp',peakHp.toFixed(1)+' HP');el('hpBar').style.height=pct+'%';
+    show('nmVal','—');
+   } else {show('hpVal','0.0 HP');show('accel','0.00');show('power','0.0');}
+   show('speed',kmh.toFixed(1));
+   maxSpeed=Math.max(maxSpeed,kmh);show('maxSpeed',maxSpeed.toFixed(1));
+   if(accelStart===null && last && last.kmh<5 && kmh>=5){accelStart=t;}
+   if(accelStart!==null && kmh>=100){const secs=(t-accelStart)/1000;if(secs>0&&secs<180){show('zero100',secs.toFixed(2));saveRun(secs,t);}accelStart=null;}
+   last={v,t,kmh,lat:c.latitude,lon:c.longitude};updateTrip(t);el('status').textContent='GPS активен · точност ±'+(c.accuracy?Math.round(c.accuracy):'?')+' m';
+   el('start').textContent='ПАУЗИРАЈ GPS';
+  },err=>{
+   watch=null;el('start').textContent='СТАРТ GPS';
+   const messages={1:'Дозволата за локација е одбиена. Дозволи Location за Chrome.',2:'Локацијата моментално не е достапна. Провери GPS на телефонот.',3:'GPS одговорот истече. Притисни START GPS повторно.'};
+   el('status').textContent='GPS грешка: '+(messages[err.code]||err.message);
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+ } catch(e){watch=null;el('start').textContent='СТАРТ GPS';el('status').textContent='Не може да се стартува GPS: '+e.message;}
+};
+window.addEventListener('resize',drawChart);
+drawChart();
+</script>
+</body></html>
